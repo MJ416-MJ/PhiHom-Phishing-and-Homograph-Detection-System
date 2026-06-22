@@ -10,7 +10,6 @@ __pycache__/
 out/
 
 #Data files too large
-*.csv
 *.arff
 *.docx
 
