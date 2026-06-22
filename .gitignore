@@ -1,5 +1,6 @@
 #Phihom- Phishing detection system
 #ignore the following files and folders
+.vscode/
 venv/
 __pycache__/
 *.py[cod]
@@ -10,7 +11,7 @@ __pycache__/
 out/
 
 #Data files too large
-*.csv
+/data/
 *.arff
 *.docx
 
