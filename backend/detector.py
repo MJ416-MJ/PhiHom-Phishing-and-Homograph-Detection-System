@@ -225,11 +225,53 @@ NOISE_WORDS = {
     'verify', 'account', 'update', 'portal', 
     'totally', 'total', 'local', 'my', 'xn'
     }
+SHARED_HOSTING_PLATFORMS = {
+    'firebaseapp.com', 'github.io', 'workers.dev', 'pantheonsite.io',
+    'lovable.app', 'ipfs.io', 'netlify.app', 'vercel.app', 'pages.dev',
+    'herokuapp.com', 'repl.co', 'glitch.me'
+}
 KNOWN_SLD = {'co', 'com', 'org', 'net', 'gov', 'edu', 'ac', 'ne', 'or'}
+
+def check_hosting_platform_abuse(url_string):
+    result = get_url_components(url_string)
+    hostname = result["hostname"]
+
+    if hostname is None:
+        return 0, "", "",""
+
+    parts = hostname.split('.')
+
+    if len(parts) >= 3 and parts[-2] in KNOWN_SLD:
+        domain = '.'.join(parts[-3:])
+    else:
+        domain = '.'.join(parts[-2:])
+
+    if domain not in SHARED_HOSTING_PLATFORMS:
+        return 0, "", "",""
+
+    subdomain = hostname[:-(len(domain) + 1)] if hostname.endswith("." + domain) else ""
+    path = result["path"] or ""
+    haystack = (subdomain + " " + path).lower()
+    highlight =None
+
+    brand_roots = {d.split('.')[0] for d in legitimate_domains}
+    for brand in brand_roots:
+        if len(brand) >= 4 and brand in haystack:
+            highlight=brand
+            return 2, domain,highlight,"brand impersonation" 
+
+    letters = [c for c in subdomain if c.isalpha()]
+    if len(letters) >= 6:
+        vowels = sum(1 for c in letters if c.lower() in 'aeiou')
+        if vowels / len(letters) < 0.35:
+            highlight=subdomain
+            return 1, domain,highlight,"gibberish subdomain"
+    return 0, domain,"",""
+ 
 def check_domain_similarity(url_string):
     result = get_url_components(url_string)
     if result['hostname'] is None:
-        return 0,"",0
+        return 0,"",0,""
     parts = result ['hostname'].split('.')
     if len(parts) >= 3 and parts[-2] in KNOWN_SLD:
         domain = '.'.join(parts[-3:])
@@ -238,13 +280,13 @@ def check_domain_similarity(url_string):
         domain = '.'.join(parts[-2:])
         subdomain = '.'.join(parts[:-2])
     if domain in url_shorteners:
-        return 0,"",0
+        return 0,"",0,""
 
     normalized_domain = normalize_domain(domain)
     if "xn--" in result['hostname']:
         decoded_result= homograph.decode_domain(result['hostname'])
         if decoded_result is None:
-            return 0, "", 0
+            return 0, "", 0,""
         domain_match = process.extractOne(decoded_result, legitimate_domains, scorer=fuzz.ratio)
     else:
         domain_match = None
@@ -307,7 +349,7 @@ def check_domain_similarity(url_string):
                 winning_query = normalized_subdomain
                 
     if best_match is None:
-        return 0, "",0
+        return 0, "",0,""
     if best_match == domain and best_ratio == 100:
         final_ratio = fuzz.ratio(domain, best_match)
     elif winning_query == normalized_subdomain:
@@ -320,8 +362,8 @@ def check_domain_similarity(url_string):
             pass
     highest_ratio = final_ratio/100
     
-    if (highest_ratio == 1.0 and best_match == domain) and(result['scheme']=="https"):
-        return -1, best_match,highest_ratio,highlight
+    if (highest_ratio == 1.0 and best_match == domain) and (result['scheme']=="https") and (domain not in SHARED_HOSTING_PLATFORMS):
+        return -1, best_match, highest_ratio, highlight
     elif highest_ratio == 1.0:
         return 2, best_match,highest_ratio,highlight
     elif highest_ratio >=0.8 and highest_ratio < 1.0:
@@ -338,7 +380,7 @@ def analyse_url(url_string):
     hostname = get_url_components(url_string)['hostname']
     scheme = get_url_components(url_string)['scheme']
     if hostname is None:
-        return "Invalid url please try again"
+        return "Invalid url entered please try again"
     if not is_valid_url(url_string):
         return {"error": "Invalid URL format"}
     else:
@@ -392,14 +434,19 @@ def analyse_url(url_string):
         similarity_scorer,close_match,highest_ratio,highlight=check_domain_similarity(url_string)
         score+=similarity_scorer
         
+        hosting_score, hosting_platform,hosting_highlight,hosting_reason = check_hosting_platform_abuse(url_string)
+        score += hosting_score
+        if hosting_score>0:
+            indicators.append("Host platform abuse detected: "+ hosting_reason)
+        
         homograph_score, homograph_message = homographchecker(hostname or '')
         score += homograph_score
         if homograph_score > 0:
             indicators.append("Homograph attack detected: " + ", ".join(homograph_message))
         
-        if (score>=5):
+        if (score>=4):
             verdict="Dangerous"
-        elif (score>=2):
+        elif (score>=1):
             verdict= "Suspicious"
         elif (score>0):
             verdict= "Unknown website, Be cautious"
@@ -415,19 +462,34 @@ def analyse_url(url_string):
         
         if indicators:
             output["indicators"]=indicators
-        output["highlight"]=highlight
-        indicators.append(
-        f"Domain resembles {close_match} ({int(highest_ratio*100)}% similar)"
-        )
+        if highlight:
+            output["highlight"]=highlight
+        elif hosting_highlight:
+            output['highlight']=hosting_highlight
         
-        suggestion_text=suggestion.suggest_domain(close_match)
-        if "xn--"in hostname and (highest_ratio*100)<=0:
-            output['Warning']= "DO NOT CLICK THIS LINK"
-        elif close_match is not None and (highest_ratio*100)<30:
-            output["Warning"] ="DOMAIN COULD NOT BE FOUND, do not proceed unless certain" 
-        elif (suggestion_text and (highest_ratio*100)!=100):
-            if (highest_ratio*100)>30:
-                output["suggestion"] = suggestion_text +" ("+ str(int(highest_ratio*100))+"% "+"similar)"
-        elif (suggestion_text and (highest_ratio*100)==100) and(scheme!="https" ):
-                output["suggestion"] = suggestion_text +" ("+ str(int(highest_ratio*100))+"% "+"similar)"
+        if close_match in SHARED_HOSTING_PLATFORMS:
+            if hosting_highlight:
+                indicators.append(
+                f"Hosted on shared platform {hosting_platform} — suspicious content in subdomain/path: {hosting_highlight}"
+        )
+            else:
+                indicators.append(
+            f"Hosted on shared platform {hosting_platform} — subdomain content is third-party controlled"
+        )
+        elif close_match:
+            indicators.append(
+            f"Domain resembles {close_match} ({int(highest_ratio*100)}% similar)"
+    )
+            
+        if(hosting_score==0):
+            suggestion_text=suggestion.suggest_domain(close_match)
+            if "xn--"in hostname and (highest_ratio*100)<=0:
+                output['Warning']= "DO NOT CLICK THIS LINK"
+            elif close_match is not None and (highest_ratio*100)<30:
+                output["Warning"] ="DOMAIN COULD NOT BE FOUND, do not proceed unless certain" 
+            elif (suggestion_text and (highest_ratio*100)!=100):
+                if (highest_ratio*100)>30:
+                    output["suggestion"] = suggestion_text +" ("+ str(int(highest_ratio*100))+"% "+"similar)"
+            elif (suggestion_text and (highest_ratio*100)==100) and(scheme!="https" ):
+                    output["suggestion"] = suggestion_text +" ("+ str(int(highest_ratio*100))+"% "+"similar)"
         return output
