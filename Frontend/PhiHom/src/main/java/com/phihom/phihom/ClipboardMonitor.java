@@ -45,7 +45,7 @@ public class ClipboardMonitor {
             } catch (Exception e) {
                 retries--;
                 try {
-                    Thread.sleep(50);
+                    Thread.sleep(10);
                 } catch (InterruptedException ignored) {}
             }
         }
