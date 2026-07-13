@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.ScrollPane?>
+
+<?import javafx.scene.text.TextFlow?>
+<VBox spacing="0" style="-fx-background-color: #f5f5f5;"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.phihom.phihom.MainWindowController">
+
+    <!-- Header -->
+    <HBox style="-fx-background-color: #1a1a2e; -fx-padding: 15;" alignment="CENTER">
+        <Label text="PhiHom — Phishing Link Detector"
+               style="-fx-text-fill: white; -fx-font-size: 16; -fx-font-weight: bold;"/>
+    </HBox>
+
+    <!-- Input area -->
+    <VBox spacing="10" style="-fx-padding: 20;">
+        <HBox spacing="10" alignment="CENTER">
+            <TextField fx:id="urlInput" promptText="Paste or type a URL here..."
+                       prefWidth="480" style="-fx-font-size: 13;"/>
+            <Button fx:id="checkButton" text="Check URL" onAction="#checkUrl"
+                    style="-fx-background-color: #2563eb; -fx-text-fill: white;
+                           -fx-font-weight: bold; -fx-padding: 8 16;"/>
+        </HBox>
+        <Label fx:id="clipboardStatus"
+               text="● PhiHom is monitoring your clipboard for URLs..."
+               style="-fx-text-fill: #555; -fx-font-size: 12;"/>
+    </VBox>
+
+    <!-- Progress panel -->
+    <VBox fx:id="progressPanel" spacing="10" alignment="CENTER"
+          style="-fx-padding: 20;" visible="false" managed="false">
+        <Label text="⟳ Analyzing URL..."
+               style="-fx-font-size: 14; -fx-text-fill: #333;"/>
+        <ProgressBar fx:id="progressBar" prefWidth="400" progress="-1"/>
+        <Label text="Analysis in progress..."
+               style="-fx-background-color: #fef9c3; -fx-padding: 8;
+                      -fx-font-size: 12;" maxWidth="Infinity"/>
+        <Button text="Cancel" onAction="#cancelAnalysis"
+                style="-fx-background-color: #dc2626; -fx-text-fill: white;
+                       -fx-padding: 6 14;"/>
+    </VBox>
+
+    <!-- Safe panel -->
+    <VBox fx:id="safePanel" spacing="10" alignment="CENTER"
+          style="-fx-background-color: #f0fdf4; -fx-border-color: #86efac;
+                 -fx-border-radius: 8; -fx-background-radius: 8;
+                 -fx-padding: 20;"
+          visible="false" managed="false">
+        <Label text="✓" style="-fx-text-fill: #16a34a; -fx-font-size: 36;"/>
+        <Label text="URL is Safe"
+               style="-fx-text-fill: #16a34a; -fx-font-size: 18;
+                      -fx-font-weight: bold;"/>
+        <Label fx:id="safeUrlLabel" text=""
+               style="-fx-text-fill: #555; -fx-font-size: 12;"/>
+        <Label text="No phishing indicators detected."
+               style="-fx-text-fill: #555; -fx-font-size: 12;"/>
+        <Button text="Check Another URL" onAction="#checkAnother"
+                style="-fx-background-color: #2563eb; -fx-text-fill: white;
+                       -fx-font-weight: bold; -fx-padding: 8 16;"/>
+    </VBox>
+
+    <!-- Danger panel -->
+    <ScrollPane fx:id="dangerScrollPane" fitToWidth="true"
+                visible="false" managed="false" style="-fx-padding: 10;">
+        <VBox fx:id="dangerPanel" spacing="10" style="-fx-padding: 10;">
+
+            <!-- Warning header -->
+            <Label text="⚠ Phishing Link Detected"
+                   style="-fx-background-color: #fee2e2; -fx-text-fill: #dc2626;
+                          -fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 12;
+                          -fx-border-color: #fca5a5; -fx-border-radius: 6;
+                          -fx-background-radius: 6;" maxWidth="Infinity"/>
+
+            <!-- Verdict and score -->
+            <Label fx:id="verdictLabel" text=""
+                   style="-fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 4;"
+                   maxWidth="Infinity"/>
+            <Label fx:id="scoreLabel" text=""
+                   style="-fx-font-size: 12; -fx-text-fill: #555;"/>
+
+            <!-- Suspicious URL -->
+            <Label text="Suspicious URL:"
+                   style="-fx-font-weight: bold; -fx-font-size: 12;"/>
+            <TextFlow fx:id="suspiciousUrlFlow"
+                      style="-fx-background-color: white; -fx-border-color: #dc2626;
+                          -fx-padding: 8; -fx-font-size: 12; -fx-border-radius: 4;"
+                      maxWidth="Infinity"/>
+
+            <!-- Indicators -->
+            <Label text="Phishing Indicators:"
+                   style="-fx-font-weight: bold; -fx-font-size: 12;"/>
+            <VBox fx:id="indicatorsBox" spacing="5"
+                  style="-fx-background-color: white; -fx-border-color: #dc2626;
+                         -fx-padding: 10; -fx-border-radius: 4;"/>
+
+            <!-- Suggestion -->
+            <VBox fx:id="suggestionBox" spacing="8"
+                  style="-fx-background-color: #eff6ff; -fx-border-color: #93c5fd;
+                         -fx-padding: 12; -fx-border-radius: 6;
+                         -fx-background-radius: 6;"
+                  visible="false" managed="false">
+                <Label fx:id="suggestionLabel" text=""
+                       style="-fx-text-fill: #1d4ed8; -fx-font-weight: bold;
+                              -fx-font-size: 13;" wrapText="true"/>
+                <Button fx:id="goToButton" text="" onAction="#goToSuggested"
+                        style="-fx-background-color: #2563eb; -fx-text-fill: white;
+                               -fx-font-weight: bold; -fx-padding: 8 16;"/>
+            </VBox>
+
+            <!-- Check another -->
+            <Button text="Check Another URL" onAction="#checkAnother"
+                    style="-fx-background-color: #1a1a2e; -fx-text-fill: white;
+                           -fx-font-weight: bold; -fx-padding: 8 16;"
+                    maxWidth="Infinity"/>
+        </VBox>
+    </ScrollPane>
+
+    <!-- Status bar -->
+    <Label fx:id="statusBar" text="System: Active | Clipboard Monitoring: ON"
+           style="-fx-background-color: #e0e0e0; -fx-padding: 8; -fx-font-size: 11;"
+           maxWidth="Infinity"/>
+
+</VBox>
