@@ -27,9 +27,19 @@ def get_scripts(domain):
 def check_script(domain):
     parts = domain.split(".")
     domain_words = parts[:-1]
+    tld = parts[-1]
     joined_words="".join(domain_words)
     scripts = get_scripts(domain)
     swapped_script = []
+    tld_scripts = []
+    script_names = []
+    for char in tld:
+        if char.isalpha():
+            try:
+                name = unicodedata.name(char)
+                tld_scripts.append(name.split()[0])
+            except ValueError:
+                continue
     for char in joined_words:
         if not char.isalpha():
             continue
@@ -39,11 +49,19 @@ def check_script(domain):
             continue
         if not name.startswith("LATIN"):
             swapped_script.append("["+char+"]" + " is a "+str(name.split()[0])+" character in a mixed-script domain ")
+            script_names.append(name.split()[0])
         
-    
     if len(scripts)>1:
         return 2,swapped_script
-    return 0,""
+    if len(scripts) == 1 and len(tld_scripts) >= 1:
+        domain_script_item = list(scripts)[0]
+        tld_script_item = tld_scripts[0]
+        
+        if domain_script_item != tld_script_item:
+            
+            return 2, "Script Mixing Detected: Domain name script comprises of " + script_names[0] +" characters" + " and this is different from the TLD script which comprises of " + tld_script_item +" characters"
+
+    return 0, ""
 
 file_path = os.path.join(get_base_path(),'data','confusables.txt')
 with open(file_path,'r', encoding='utf-8-sig') as f:
@@ -78,14 +96,18 @@ def decode_domain(domain):
 
 def check_idna(domain):
     decoded_domain =decode_domain(domain)
+    first_char = decoded_domain[0]
     if decoded_domain is None:
         return 2, "Invalid Punycode encoding"
     has_punycode = False
     if decoded_domain != domain:
-        has_punycode = True 
+        has_punycode = True
     score,found = check_script(decoded_domain)
     if(score == 2 and has_punycode):
-        msg = "Punycode detected, decoded to "+ decoded_domain + " contains mixed scripts " + str(found)
+        if(found):
+            msg = "Punycode detected, decoded to "+ decoded_domain + ". Warning " + str(found)
+        else:
+            msg = "Punycode detected, decoded to "+ decoded_domain + " which is comprised of " + str(unicodedata.name((first_char)[0]))
         return 2,msg
     return 0,""
         

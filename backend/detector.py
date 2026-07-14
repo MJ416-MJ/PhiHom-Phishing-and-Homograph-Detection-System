@@ -46,11 +46,14 @@ def check_url_length(url_string):
         return 2
     
 def check_ip_address(url_string):
-    ip_pattern = re.search(r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)', url_string)
-    if (ip_pattern is None):
+    hostname = get_url_components(url_string)["hostname"]
+    if (hostname is None):
         return 0,0
-    else:
-        return 2,ip_pattern.group(0)
+    ip_pattern = (r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
+    
+    if re.fullmatch(ip_pattern,hostname):
+        return 2,hostname
+    return 0,0
     
 def check_at_in_url(url_string):
     if ('@' in url_string):
@@ -78,8 +81,8 @@ def check_suspicious_tld(url_string):
     result = get_url_components(url_string)
     if result['hostname'] is None:
         return 0,""
-    _,ip_address_presence = check_ip_address(url_string)
-    if str(ip_address_presence) in result['hostname']:
+    ip_score,ip_address_ = check_ip_address(url_string)
+    if ip_score>0:
         msg="Ip address used instead of domain"
         return 1,msg
     x = result['hostname'].split('.')
@@ -270,9 +273,15 @@ def check_hosting_platform_abuse(url_string):
  
 def check_domain_similarity(url_string):
     result = get_url_components(url_string)
-    if result['hostname'] is None:
+    hostname = result['hostname']
+    if hostname is None:
         return 0,"",0,""
-    parts = result ['hostname'].split('.')
+    if "xn--" in hostname:
+        decoded_result= homograph.decode_domain(hostname)
+        if decoded_result is None:
+            return 0, "", 0,""
+        hostname = decoded_result
+    parts = hostname.split('.')
     if len(parts) >= 3 and parts[-2] in KNOWN_SLD:
         domain = '.'.join(parts[-3:])
         subdomain = '.'.join(parts[:-3])
@@ -283,48 +292,46 @@ def check_domain_similarity(url_string):
         return 0,"",0,""
 
     normalized_domain = normalize_domain(domain)
-    if "xn--" in result['hostname']:
-        decoded_result= homograph.decode_domain(result['hostname'])
-        if decoded_result is None:
-            return 0, "", 0,""
-        domain_match = process.extractOne(decoded_result, legitimate_domains, scorer=fuzz.ratio)
-    else:
-        domain_match = None
-        highlight = None
-        if '-' in domain:
-            label = domain.split('.')[0]
+     
+        
+    
+    domain_match = None
+    highlight = None
+    best_match=None
+    best_ratio = 0
+    if '-' in domain:
+        label = domain.split('.')[0]
 
-            words = [
-                w for w in label.split('-')
-                if w not in NOISE_WORDS
-                ]
+        words = [
+            w for w in label.split('-')
+            if w not in NOISE_WORDS
+            ]
 
-            best_match=None
-            best_ratio = 0
+        
 
-            for word in words:
-                normalized_query = normalize_domain(word) + (
-                ".com" 
-                )
+        for word in words:
+            normalized_query = normalize_domain(word) + (
+            ".com" 
+            )
 
-                match = process.extractOne(
-                    normalized_query,
-                    legitimate_domains,
-                    scorer=fuzz.ratio
-                )
-
-                if match:
-                    matched_domain,ratio,_=match
-                    if ratio>best_ratio:
-                        domain_match = match
-                        best_ratio = ratio
-
-        if domain_match is None:
-            domain_match = process.extractOne(
-                normalized_domain,
+            match = process.extractOne(
+                normalized_query,
                 legitimate_domains,
                 scorer=fuzz.ratio
-        )
+            )
+
+            if match:
+                matched_domain,ratio,_=match
+                if ratio>best_ratio:
+                    domain_match = match
+                    best_ratio = ratio
+
+    if domain_match is None:
+        domain_match = process.extractOne(
+            normalized_domain,
+            legitimate_domains,
+            scorer=fuzz.ratio
+    )
             
     
     if domain_match is not None:
@@ -353,10 +360,10 @@ def check_domain_similarity(url_string):
     if best_match == domain and best_ratio == 100:
         final_ratio = fuzz.ratio(domain, best_match)
     elif winning_query == normalized_subdomain:
-        final_ratio = fuzz.ratio(result['hostname'], best_match)
+        final_ratio = fuzz.ratio(hostname, best_match)
     else:
    
-        final_ratio = fuzz.ratio(result['hostname'], best_match)
+        final_ratio = fuzz.ratio(hostname, best_match)
         highlight = winning_query
         if highlight is None:
             pass
@@ -493,3 +500,4 @@ def analyse_url(url_string):
             elif (suggestion_text and (highest_ratio*100)==100) and(scheme!="https" ):
                     output["suggestion"] = suggestion_text +" ("+ str(int(highest_ratio*100))+"% "+"similar)"
         return output
+print(analyse_url("https://xn--80ak6aa92e.com"))

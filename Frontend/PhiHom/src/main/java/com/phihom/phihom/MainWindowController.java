@@ -90,7 +90,9 @@ public class MainWindowController {
     }
 
     private void processResult(String result, String url) {
+        clipboardStatus.setText("● PhiHom is monitoring your clipboard for URLs...");
         try {
+            clipboardStatus.setText("Url detected");
             JSONObject json = new JSONObject(result);
             String verdict = json.getString("verdict");
             int score = json.getInt("score");
@@ -158,6 +160,7 @@ public class MainWindowController {
             }
         } catch (Exception e) {
             clipboardStatus.setText("Error: " + "BAD URL");
+
         }
     }
     private void highlightUrl(String url, JSONArray suspicious_indicator,String extraHighlight) {
@@ -305,7 +308,7 @@ public class MainWindowController {
         } catch (Exception e) {
             clipboardStatus.setText("Could not open browser");
         } finally {
-            checkAnother(); // reset UI after navigating
+            checkAnother();
         }
     }
 
