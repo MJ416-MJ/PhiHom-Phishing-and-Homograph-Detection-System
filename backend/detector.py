@@ -439,7 +439,7 @@ def analyse_url(url_string):
         if hosting_score>0:
             indicators.append("Host platform abuse detected: "+ hosting_reason)
         
-        homograph_score, homograph_message = homographchecker(hostname or '')
+        homograph_score, homograph_message = homographchecker(hostname or '',highest_ratio)
         score += homograph_score
         if homograph_score > 0:
             indicators.append("Homograph attack detected: " + ", ".join(homograph_message))

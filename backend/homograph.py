@@ -6,13 +6,30 @@ def get_base_path():
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS
     return os.path.dirname(__file__)
+
+def get_scripts(domain):
+    parts = domain.split(".")
+    joined_words = "".join(parts[:-1])
+
+    scripts = set()
+
+    for char in joined_words:
+        if not char.isalpha():
+            continue
+
+        try:
+            name = unicodedata.name(char)
+            scripts.add(name.split()[0])
+        except ValueError:
+            continue
+
+    return scripts
 def check_script(domain):
     parts = domain.split(".")
     domain_words = parts[:-1]
     joined_words="".join(domain_words)
+    scripts = get_scripts(domain)
     swapped_script = []
-    none_latin_score=0
-    latin_score =0
     for char in joined_words:
         if not char.isalpha():
             continue
@@ -21,16 +38,13 @@ def check_script(domain):
         except ValueError:
             continue
         if not name.startswith("LATIN"):
-            none_latin_score +=1
-            swapped_script.append("["+char+"]" + " is a "+str(name.split()[0])+" character that is disguised as a Latin character ")
-        if name.startswith("LATIN"):
-            latin_score +=1
+            swapped_script.append("["+char+"]" + " is a "+str(name.split()[0])+" character in a mixed-script domain ")
+        
     
+    if len(scripts)>1:
+        return 2,swapped_script
+    return 0,""
 
-    if none_latin_score>0 and latin_score>0:
-        return 2, swapped_script
-    else:
-        return 0,""
 file_path = os.path.join(get_base_path(),'data','confusables.txt')
 with open(file_path,'r', encoding='utf-8-sig') as f:
     confusables = {}
@@ -59,8 +73,8 @@ def decode_domain(domain):
             decoded_part.append(part)
 
         
-            return ".".join(decoded_part)
-    return domain
+    return ".".join(decoded_part)
+    
 
 def check_idna(domain):
     decoded_domain =decode_domain(domain)
@@ -75,7 +89,10 @@ def check_idna(domain):
         return 2,msg
     return 0,""
         
-def check_confusables(domain):
+def check_confusables(domain,highest_ratio=0):
+    
+    if highest_ratio <0.35:
+        return 0,""
     parts = domain.split(".")
     joined_words="".join(parts[:-1])
     found =[]
@@ -91,11 +108,11 @@ def check_confusables(domain):
         return 2,found
     return 0,""
     
-def homographchecker(domain):
-    script_score,script_message =check_script(domain)
-    confusables_score,confusable_message =check_confusables(domain)
-    idna_score,idna_message  =check_idna(domain)
-    total_score = max(script_score,confusables_score,idna_score)
+def homographchecker(domain,highest_ratio=0):
+    script_score, script_message = check_script(domain)
+    confusables_score, confusable_message = check_confusables(domain, highest_ratio)
+    idna_score, idna_message = check_idna(domain)
+    total_score = max(script_score, confusables_score, idna_score)
     message = []
     if confusables_score>0:
         message.extend(confusable_message)
@@ -103,9 +120,7 @@ def homographchecker(domain):
         message.append(script_message)
     if idna_score>0:
         message.append(idna_message)
-        
     if message:
         return total_score,message
     else:
         return total_score,""
-    
