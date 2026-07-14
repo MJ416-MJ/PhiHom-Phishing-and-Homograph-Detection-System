@@ -7,8 +7,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 public class MainApp extends Application {
 
@@ -210,16 +213,39 @@ public class MainApp extends Application {
 
     private static void startFlask() {
         try {
-            String workingDir = System.getProperty("user.dir");
-            File exe = new File(workingDir + File.separator + "app" + File.separator + "phihom-backend.exe");
 
-            System.out.println("Looking for: " + exe.getAbsolutePath());
+            String workingDir = System.getProperty("user.dir");
+            System.out.println("Working dir: " + workingDir);
+            File exe = new File(workingDir + File.separator + "app" + File.separator + "phihom-backend.exe");
 
             if (exe.exists()) {
                 ProcessBuilder pb = new ProcessBuilder(exe.getAbsolutePath());
                 pb.redirectErrorStream(true);
                 flaskProcess = pb.start();
+                new Thread(() -> {
+                    try (BufferedReader br = new BufferedReader(
+                            new InputStreamReader(flaskProcess.getInputStream()))) {
+
+                        String line;
+                        while ((line = br.readLine()) != null) {
+                            System.out.println("[Backend] " + line);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+
+                Thread.sleep(3000);
+
+                System.out.println("Alive: " + flaskProcess.isAlive());
+
+                if (!flaskProcess.isAlive()) {
+                    System.out.println("Exit code: " + flaskProcess.exitValue());
+                }
                 Thread.sleep(2000);
+                System.out.println("Alive: " + flaskProcess.isAlive());
+                System.out.println("Exit code: " +
+                        (flaskProcess.isAlive() ? "still running" : flaskProcess.exitValue()));
                 System.out.println("Flask backend started successfully");
             } else {
                 System.out.println("Flask executable not found at: " + exe.getAbsolutePath());

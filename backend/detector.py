@@ -470,7 +470,11 @@ def analyse_url(url_string):
         if indicators:
             output["indicators"]=indicators
         if highlight:
-            output["highlight"]=highlight
+            if("xn--" in hostname):
+                
+                output['highlight']=hostname
+            else:
+                output["highlight"]=highlight
         elif hosting_highlight:
             output['highlight']=hosting_highlight
         
@@ -500,4 +504,3 @@ def analyse_url(url_string):
             elif (suggestion_text and (highest_ratio*100)==100) and(scheme!="https" ):
                     output["suggestion"] = suggestion_text +" ("+ str(int(highest_ratio*100))+"% "+"similar)"
         return output
-print(analyse_url("https://xn--80ak6aa92e.com"))

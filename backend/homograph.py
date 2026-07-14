@@ -48,7 +48,7 @@ def check_script(domain):
         except ValueError:
             continue
         if not name.startswith("LATIN"):
-            swapped_script.append("["+char+"]" + " is a "+str(name.split()[0])+" character in a mixed-script domain ")
+            swapped_script.append("["+char+"]" + " is a "+str(name.split()[0])+" character in a mixed-script domain\n ")
             script_names.append(name.split()[0])
         
     if len(scripts)>1:
@@ -59,7 +59,7 @@ def check_script(domain):
         
         if domain_script_item != tld_script_item:
             
-            return 2, "Script Mixing Detected: Domain name script comprises of " + script_names[0] +" characters" + " and this is different from the TLD script which comprises of " + tld_script_item +" characters"
+            return 2, "Script Mixing Detected: Domain name "+"["+joined_words+"]"+" script comprises of " + script_names[0] +" characters" + " and this is different from the TLD " + "["+ tld +"]"+" script which comprises of " + tld_script_item +" characters\n"
 
     return 0, ""
 
@@ -105,7 +105,7 @@ def check_idna(domain):
     score,found = check_script(decoded_domain)
     if(score == 2 and has_punycode):
         if(found):
-            msg = "Punycode detected, decoded to "+ decoded_domain + ". Warning " + str(found)
+            msg = "Punycode detected, decoded to "+ decoded_domain + ".\n Warning " + str(found)
         else:
             msg = "Punycode detected, decoded to "+ decoded_domain + " which is comprised of " + str(unicodedata.name((first_char)[0]))
         return 2,msg
